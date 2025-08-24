@@ -1,0 +1,138 @@
+name: ClusterFuzzLite PR Fuzzing
+
+# Trigger the workflow on pull requests to any branch
+# This ensures that every PR gets fuzz testing
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'  # Skip fuzzing for documentation-only changes
+  workflow_dispatch:  # Allow manual triggering for testing
+
+# Set permissions for the workflow
+permissions:
+  contents: read
+  security-events: write  # For uploading SARIF files if needed
+
+jobs:
+  fuzzing:
+    name: Build and Run Fuzzers
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Step 1: Checkout the repository code
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # Fetch more history for better analysis
+        fetch-depth: 0
+
+    # Step 2: Build fuzzers using ClusterFuzzLite
+    # This step compiles our fuzzers using the Dockerfile and build.sh
+    - name: Build Fuzzers
+      id: build
+      uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+      with:
+        # Programming language for the project
+        language: c++
+        # Sanitizer to use (address, memory, undefined, coverage)
+        sanitizer: address
+        # Docker image build architecture 
+        architecture: x86_64
+        # Whether this is a dry-run (false = actual run)
+        dry-run: false
+        # GitHub token for accessing the repository
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        # Additional environment variables if needed
+        # build-integration: 'docker'  # Default for C++ projects
+
+    # Step 3: Run the fuzzers with a short timeout suitable for CI
+    # This step executes the built fuzzers to find potential issues
+    - name: Run Fuzzers
+      id: run
+      uses: google/clusterfuzzlite/actions/run_fuzzers@v1
+      with:
+        # Programming language (must match build step)
+        language: c++
+        # Total seconds to spend fuzzing (keep low for CI)
+        fuzz-seconds: 120
+        # Sanitizer to use (must match build step)
+        sanitizer: address
+        # Architecture (must match build step)
+        architecture: x86_64
+        # Whether this is a dry-run
+        dry-run: false
+        # GitHub token
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        # Mode: 'ci' for CI/CD, 'batch' for longer runs
+        mode: ci
+        # Report unreproducible crashes (usually false for PR checks)
+        report-unreproducible-crashes: false
+        # Minimize crashes to reduce noise
+        minimize-crashes: true
+
+    # Step 4: Upload fuzzing artifacts (crash reproducers, logs, etc.)
+    # This runs even if fuzzing finds issues, so we can examine the results
+    - name: Upload Fuzzing Artifacts
+      if: always()  # Run even if fuzzing found crashes
+      uses: actions/upload-artifact@v4
+      with:
+        name: clusterfuzzlite-artifacts
+        path: |
+          build-out/
+          artifacts/
+        retention-days: 14
+        if-no-files-found: ignore
+
+    # Step 5: Upload any crash reproducers as a separate artifact for easy access
+    - name: Upload Crash Reproducers
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: crash-reproducers
+        path: artifacts/
+        retention-days: 30
+        if-no-files-found: ignore
+
+  # Optional: Add a job to check fuzzing results and comment on PR
+  # This job analyzes the fuzzing results and provides feedback
+  report:
+    name: Report Fuzzing Results
+    runs-on: ubuntu-latest
+    needs: fuzzing
+    if: always()  # Run regardless of fuzzing outcome
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: clusterfuzzlite-artifacts
+        path: ./artifacts
+      continue-on-error: true
+
+    - name: Check for crashes
+      id: check-crashes
+      run: |
+        echo "Checking for crash files..."
+        if find ./artifacts -name "*crash*" -o -name "*leak*" -o -name "*timeout*" | grep -q .; then
+          echo "crashes-found=true" >> $GITHUB_OUTPUT
+          echo "⚠️ Fuzzing found potential issues!"
+          find ./artifacts -name "*crash*" -o -name "*leak*" -o -name "*timeout*" -exec echo "Found: {}" \;
+        else
+          echo "crashes-found=false" >> $GITHUB_OUTPUT
+          echo "✅ No crashes found during fuzzing."
+        fi
+
+    - name: Comment on PR (if crashes found)
+      if: steps.check-crashes.outputs.crashes-found == 'true' && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '⚠️ **ClusterFuzzLite found potential issues in this PR**\n\nPlease check the fuzzing artifacts for details:\n- Download the `crash-reproducers` artifact from the Actions tab\n- Review the logs in the fuzzing job\n\ncc: @' + context.payload.pull_request.user.login
+          });
