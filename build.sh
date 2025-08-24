@@ -8,6 +8,7 @@ set -euxo pipefail
 
 # Ensure we're in the source directory
 cd /src
+echo "Current directory: $(pwd)"
 
 # Set compiler flags for fuzzing and AddressSanitizer
 # These environment variables are provided by the ClusterFuzzLite base image:
