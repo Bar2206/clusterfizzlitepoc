@@ -57,8 +57,8 @@ jobs:
         dry-run: false
         # GitHub token
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        # Mode: 'ci' for CI/CD, 'batch' for longer runs
-        mode: ci
+        # Mode: 'code-change' for PR fuzzing, 'batch' for longer runs
+        mode: code-change
         # Report unreproducible crashes (usually false for PR checks)
         report-unreproducible-crashes: false
         # Minimize crashes to reduce noise
