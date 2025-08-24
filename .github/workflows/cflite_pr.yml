@@ -27,7 +27,7 @@ jobs:
         fetch-depth: 0
 
     # Step 2: Build fuzzers using ClusterFuzzLite
-    # This step compiles our fuzzers using the Dockerfile and build.sh
+    # This step compiles our fuzzers using the .clusterfuzzlite/Dockerfile and build.sh
     - name: Build Fuzzers
       id: build
       uses: google/clusterfuzzlite/actions/build_fuzzers@v1
@@ -36,14 +36,10 @@ jobs:
         language: c++
         # Sanitizer to use (address, memory, undefined, coverage)
         sanitizer: address
-        # Docker image build architecture 
-        architecture: x86_64
         # Whether this is a dry-run (false = actual run)
         dry-run: false
         # GitHub token for accessing the repository
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        # Additional environment variables if needed
-        # build-integration: 'docker'  # Default for C++ projects
 
     # Step 3: Run the fuzzers with a short timeout suitable for CI
     # This step executes the built fuzzers to find potential issues
@@ -57,14 +53,12 @@ jobs:
         fuzz-seconds: 120
         # Sanitizer to use (must match build step)
         sanitizer: address
-        # Architecture (must match build step)
-        architecture: x86_64
         # Whether this is a dry-run
         dry-run: false
         # GitHub token
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        # Mode: 'ci' for CI/CD, 'batch' for longer runs
-        mode: ci
+        # Mode: 'code-change' for PR fuzzing, 'batch' for longer runs
+        mode: code-change
         # Report unreproducible crashes (usually false for PR checks)
         report-unreproducible-crashes: false
         # Minimize crashes to reduce noise

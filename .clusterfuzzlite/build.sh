@@ -7,7 +7,8 @@
 set -euxo pipefail
 
 # Ensure we're in the source directory
-cd /src
+cd $SRC/clusterfizzlitepoc
+echo "Current directory: $(pwd)"
 
 # Set compiler flags for fuzzing and AddressSanitizer
 # These environment variables are provided by the ClusterFuzzLite base image:
@@ -17,7 +18,7 @@ cd /src
 # - $OUT: Output directory for fuzzer binaries
 
 # Additional flags for our build
-FUZZ_CXXFLAGS="$CXXFLAGS -std=c++17 -I/src/src/lib"
+FUZZ_CXXFLAGS="$CXXFLAGS -std=c++17 -I$SRC/clusterfizzlitepoc/src/lib"
 
 echo "=== Building TinyLib library ==="
 # Compile the library

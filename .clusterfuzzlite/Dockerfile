@@ -18,24 +18,27 @@ LABEL description="Minimal C++ project demonstrating ClusterFuzzLite integration
 # - libFuzzer integration
 # No additional packages required!
 
-# Set the working directory to /src as expected by ClusterFuzzLite
-WORKDIR /src
-
 # Copy the entire project into the container
-# ClusterFuzzLite expects the source code to be in /src
-COPY . /src/
+# ClusterFuzzLite expects the source code to be in $SRC
+COPY . $SRC/clusterfizzlitepoc
+
+# Set the working directory to the project
+WORKDIR $SRC/clusterfizzlitepoc
+
+# Copy build.sh from .clusterfuzzlite to $SRC so ClusterFuzzLite can find it
+COPY .clusterfuzzlite/build.sh $SRC/
 
 # Ensure build script is executable (belt and suspenders approach)
-RUN chmod +x /src/build.sh
+RUN chmod +x $SRC/build.sh
 
 # Set default sanitizer to AddressSanitizer
 # This can be overridden by ClusterFuzzLite at build time
 ENV SANITIZER=address
 
 # Verify our source structure
-RUN ls -la /src && \
-    ls -la /src/src/lib && \
-    ls -la /src/src/fuzz
+RUN ls -la $SRC/clusterfizzlitepoc && \
+    ls -la $SRC/clusterfizzlitepoc/src/lib && \
+    ls -la $SRC/clusterfizzlitepoc/src/fuzz
 
 # The ClusterFuzzLite system will:
 # 1. Mount this container
