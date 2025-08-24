@@ -25,6 +25,10 @@ This repository contains a minimal C++ project that demonstrates ClusterFuzzLite
 
 ```
 .
+├── .clusterfuzzlite/
+│   ├── build.sh               # Build script for ClusterFuzzLite  
+│   ├── Dockerfile             # Docker configuration for ClusterFuzzLite
+│   └── project.yaml           # Project configuration (language: c++)
 ├── .github/
 │   └── workflows/
 │       └── cflite_pr.yml      # GitHub Actions workflow for PR fuzzing
@@ -34,8 +38,6 @@ This repository contains a minimal C++ project that demonstrates ClusterFuzzLite
 │   │   └── tiny_lib.cpp       # Library implementation
 │   └── fuzz/
 │       └── tiny_fuzz_target.cpp # LibFuzzer target
-├── build.sh                   # Build script for ClusterFuzzLite
-├── Dockerfile                 # Docker configuration for fuzzing
 ├── README.md                  # This file
 └── LICENSE                    # MIT License
 ```
@@ -53,7 +55,7 @@ This repository contains a minimal C++ project that demonstrates ClusterFuzzLite
 
 The GitHub Actions workflow (`.github/workflows/cflite_pr.yml`) runs two main steps:
 
-1. **Build Fuzzers**: Compiles the fuzz targets using the `Dockerfile` and `build.sh`
+1. **Build Fuzzers**: Compiles the fuzz targets using the `.clusterfuzzlite/Dockerfile` and `.clusterfuzzlite/build.sh`
 2. **Run Fuzzers**: Executes the fuzzers for 2 minutes to find potential issues
 
 If crashes are found, they'll be uploaded as artifacts and a comment will be posted on the PR.
@@ -63,8 +65,8 @@ If crashes are found, they'll be uploaded as artifacts and a comment will be pos
 You can test the Docker build locally:
 
 ```bash
-# Build the Docker image
-docker build -t clusterfuzzlite-demo .
+# Build the Docker image using the ClusterFuzzLite structure
+docker build -t clusterfuzzlite-demo -f .clusterfuzzlite/Dockerfile .
 
 # Run the container to build fuzzers
 docker run --rm -it clusterfuzzlite-demo /bin/bash -c "
@@ -74,8 +76,9 @@ docker run --rm -it clusterfuzzlite-demo /bin/bash -c "
   export CFLAGS='-fsanitize=address -fsanitize-address-use-after-scope'
   export CXXFLAGS='-fsanitize=address -fsanitize-address-use-after-scope'
   export LIB_FUZZING_ENGINE='-fsanitize=fuzzer'
+  export SRC=/src
   mkdir -p \$OUT
-  ./build.sh
+  /src/build.sh
   ls -la \$OUT/
 "
 ```
@@ -98,8 +101,9 @@ The LibFuzzer target that:
 
 ### Build Configuration
 
-- **`Dockerfile`**: Based on `gcr.io/oss-fuzz-base/base-builder` image
-- **`build.sh`**: Compiles the library and links the fuzzer with LibFuzzer and AddressSanitizer
+- **`.clusterfuzzlite/Dockerfile`**: Based on `gcr.io/oss-fuzz-base/base-builder` image  
+- **`.clusterfuzzlite/project.yaml`**: Specifies the project language (C++)
+- **`.clusterfuzzlite/build.sh`**: Compiles the library and links the fuzzer with LibFuzzer and AddressSanitizer
 
 ### GitHub Actions Workflow
 
@@ -115,9 +119,10 @@ To adapt this demo for your own project:
 
 1. **Replace the library code** in `src/lib/` with your actual code
 2. **Update the fuzz target** in `src/fuzz/` to test your functions
-3. **Modify `build.sh`** to compile your project correctly
-4. **Adjust the `Dockerfile`** if you need additional dependencies
-5. **Customize the workflow** timing and parameters in `cflite_pr.yml`
+3. **Modify `.clusterfuzzlite/build.sh`** to compile your project correctly
+4. **Adjust `.clusterfuzzlite/Dockerfile`** if you need additional dependencies
+5. **Update `.clusterfuzzlite/project.yaml`** if using a different language
+6. **Customize the workflow** timing and parameters in `cflite_pr.yml`
 
 ## Resources
 
